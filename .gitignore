@@ -1,0 +1,12 @@
+__pycache__/
+.ruff_cache/
+.vscode/
+.env
+.venv
+venv/
+
+.DS_Store
+
+
+instance/
+.webassets-cache
