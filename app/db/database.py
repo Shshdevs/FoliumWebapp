@@ -19,7 +19,7 @@ class Database:
     def select(
         self,
         table: str,
-        values: Sequence[Tuple[str, Any]] = "*",
+        values: str = "*",
         eq: Sequence[Tuple[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         where_clause, params = self._build_where(eq)

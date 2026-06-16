@@ -10,37 +10,9 @@ class MapManager:
     CSS_STYLE = "<style>.leaflet-interactive:focus {outline: none;}</style>"
     QUERY_VALUES = "ST_AsGeoJSON(ST_SimplifyPreserveTopology(geom, 0.01)) as geom, name, ST_Y(ST_Centroid(geom)) as lat, ST_X(ST_Centroid(geom)) as lon"
 
-    VVP_QUERY = """
-    WITH vvp_grouped AS (
-        SELECT
-            object_name,
-            year::integer AS year,
-            SUM(indicator_value::numeric) AS indicator_value
-        FROM "VVP"
-        WHERE indicator_value NOT IN ('-99999999', '-77777777')
-        GROUP BY object_name, year::integer
-    ),
-    vvp_calc AS (
-        SELECT
-            object_name,
-            year,
-            indicator_value,
-            indicator_value - LAG(indicator_value) OVER (PARTITION BY object_name ORDER BY year) AS delta
-        FROM vvp_grouped
-    )
-    SELECT
-        s.name,
-        ST_AsGeoJSON(ST_SimplifyPreserveTopology(s.geom, 0.01)) AS geom,
-        ST_Y(ST_Centroid(s.geom)) as lat,
-        ST_X(ST_Centroid(s.geom)) as lon,
-        v.indicator_value,
-        v.delta
-    FROM "srf" s
-    LEFT JOIN vvp_calc v ON s.name = v.object_name AND v.year = %s
-    WHERE s.geom IS NOT NULL;
-    """
-
-    def __init__(self, location: Optional[list] = None, zoom_start: Optional[int] = None) -> None:
+    def __init__(
+        self, location: Optional[list] = None, zoom_start: Optional[int] = None
+    ) -> None:
         self.location = location or self.MAP_CENTER
         self.zoom_start = zoom_start or self.MAP_ZOOM
         self.map = folium.Map(location=self.location, zoom_start=self.zoom_start)
@@ -62,18 +34,18 @@ class MapManager:
             return "#cccccc"
         if abs_max == 0:
             return "#d9ef8b"
-            
+
         if delta < -2 * step:
-            return "#d73027"  
+            return "#d73027"
         if delta < -step:
-            return "#fc8d59"  
+            return "#fc8d59"
         if delta < 0:
-            return "#fee08b" 
+            return "#fee08b"
         if delta <= step:
-            return "#d9ef8b" 
+            return "#d9ef8b"
         if delta <= 2 * step:
-            return "#91cf60"  
-        return "#1a9850" 
+            return "#91cf60"
+        return "#1a9850"
 
     @staticmethod
     def _calculate_abs_max(srf_data: List[Dict[str, Any]]) -> float:
@@ -87,7 +59,9 @@ class MapManager:
         )
 
     @classmethod
-    def _generate_tooltip(cls, name: str, val: Optional[float], delta: Optional[float]) -> str:
+    def _generate_tooltip(
+        cls, name: str, val: Optional[float], delta: Optional[float]
+    ) -> str:
         val_str = cls._format_number(val)
         delta_str = cls._format_number(delta, show_sign=True)
         return f"<b>{name}</b><br>ВРП: {val_str} млн руб.<br>Изменение: {delta_str}"
@@ -96,27 +70,40 @@ class MapManager:
     def _generate_legend_html(cls, abs_max: float) -> str:
         if abs_max == 0:
             abs_max = 1
-            
+
         step = abs_max / 3
-        
+
         classes = [
-            {"color": "#1a9850", "label": f"от +{cls._format_number(2*step)} до +{cls._format_number(abs_max)}"},
-            {"color": "#91cf60", "label": f"от +{cls._format_number(step)} до +{cls._format_number(2*step)}"},
+            {
+                "color": "#1a9850",
+                "label": f"от +{cls._format_number(2 * step)} до +{cls._format_number(abs_max)}",
+            },
+            {
+                "color": "#91cf60",
+                "label": f"от +{cls._format_number(step)} до +{cls._format_number(2 * step)}",
+            },
             {"color": "#d9ef8b", "label": f"от 0 до +{cls._format_number(step)}"},
             {"color": "#fee08b", "label": f"от -{cls._format_number(step)} до 0"},
-            {"color": "#fc8d59", "label": f"от -{cls._format_number(2*step)} до -{cls._format_number(step)}"},
-            {"color": "#d73027", "label": f"от -{cls._format_number(abs_max)} до -{cls._format_number(2*step)}"},
+            {
+                "color": "#fc8d59",
+                "label": f"от -{cls._format_number(2 * step)} до -{cls._format_number(step)}",
+            },
+            {
+                "color": "#d73027",
+                "label": f"от -{cls._format_number(abs_max)} до -{cls._format_number(2 * step)}",
+            },
         ]
-        
+
         legend_items = "".join(
-            f'''
+            f"""
             <div style="margin-bottom: 6px; display: flex; align-items: center;">
-                <span style="display:inline-block;width:16px;height:16px;background:{c['color']};border-radius:3px;margin-right:8px;border:1px solid #bbb;"></span>
-                <span>{c['label']}</span>
+                <span style="display:inline-block;width:16px;height:16px;background:{c["color"]};border-radius:3px;margin-right:8px;border:1px solid #bbb;"></span>
+                <span>{c["label"]}</span>
             </div>
-            ''' for c in classes
+            """
+            for c in classes
         )
-            
+
         return f"""
         <div style="position:fixed;bottom:40px;left:20px;z-index:9999;background:white;padding:14px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.35);font-size:13px;width:280px;font-family:Arial,sans-serif;">
             <b style="display:block;margin-bottom:10px;">Динамика ВРП (млн руб.)</b>
@@ -210,7 +197,7 @@ class MapManager:
         """
         self.map.get_root().html.add_child(folium.Element(panel_html))
 
-    def add_base_regions(self) -> 'MapManager':
+    def add_base_regions(self) -> "MapManager":
         srf_data = db.select("srf", values=self.QUERY_VALUES)
         for srf_object in srf_data:
             geom = srf_object.get("geom")
@@ -226,8 +213,12 @@ class MapManager:
                 )
         return self
 
-    def add_vvp_dynamics(self, year: int) -> 'MapManager':
-        srf_data = db.execute_fetch(self.VVP_QUERY, [year])
+    def add_vvp_dynamics(self, year: int) -> "MapManager":
+        srf_data = db.select(
+            table="vvp_map_view",
+            values="name, geom, lat, lon, indicator_value, delta",
+            eq=[("year", year)],
+        )
         abs_max = self._calculate_abs_max(srf_data)
         step = abs_max / 3
 
@@ -258,7 +249,9 @@ class MapManager:
                     self.marker_cluster
                 )
 
-        self.map.get_root().html.add_child(folium.Element(self._generate_legend_html(abs_max)))
+        self.map.get_root().html.add_child(
+            folium.Element(self._generate_legend_html(abs_max))
+        )
         self._generate_panel(year)
         return self
 
