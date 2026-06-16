@@ -7,7 +7,7 @@
       html,
       body {
         margin: 0;
-        padding: 0;
+        padding: 0px;
         height: 100%;
         font-family: Arial, sans-serif;
       }
@@ -31,47 +31,6 @@
         flex-grow: 1;
         width: 100%;
       }
-      .slider-container {
-        padding: 10px 20px;
-        background-color: #fff;
-        border-bottom: 1px solid #ddd;
-        display: flex;
-        align-items: center;
-        gap: 15px;
-      }
-      #year-slider {
-        width: 300px;
-        cursor: pointer;
-        -webkit-appearance: none;
-        appearance: none;
-        height: 8px;
-        border-radius: 4px;
-        background: #e0e0e0;
-        outline: none;
-      }
-      #year-slider::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: #007bff;
-        cursor: pointer;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-      }
-      #year-slider::-moz-range-thumb {
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: #007bff;
-        cursor: pointer;
-        border: none;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-      }
-      .year-label {
-        font-size: 16px;
-        font-weight: bold;
-      }
     </style>
   </head>
   <body>
@@ -79,50 +38,19 @@
       <div class="header">
         <h1>Динамика ВРП регионов России</h1>
       </div>
-      <div class="slider-container">
-        <div class="year-label">
-          Год: <span id="year-display">{{ max_year }}</span>
-        </div>
-        <input
-          type="range"
-          id="year-slider"
-          min="{{ min_year }}"
-          max="{{ max_year }}"
-          value="{{ max_year }}"
-          step="1"
-        />
-      </div>
       <div class="map-container">{{ map_html | safe }}</div>
     </div>
     <script>
-      const yearSlider = document.getElementById("year-slider");
-      const yearDisplay = document.getElementById("year-display");
-
-      function updateSliderColor() {
-        const min = yearSlider.min || 0;
-        const max = yearSlider.max || 100;
-        const val = yearSlider.value;
-        const percentage = ((val - min) / (max - min)) * 100;
-
-        yearSlider.style.background = `linear-gradient(to right, #007bff ${percentage}%, #e0e0e0 ${percentage}%)`;
-      }
-
-      yearSlider.addEventListener("input", (event) => {
-        yearDisplay.textContent = event.target.value;
-        updateSliderColor();
+      window.addEventListener("message", (event) => {
+        if (event.data && event.data.type === "updateYear") {
+          const selectedYear = event.data.year;
+          fetch(`/map?year=${selectedYear}`)
+            .then((response) => response.text())
+            .then((html) => {
+              document.querySelector(".map-container").innerHTML = html;
+            });
+        }
       });
-
-      yearSlider.addEventListener("change", (event) => {
-        const selectedYear = event.target.value;
-
-        fetch(`/map?year=${selectedYear}`)
-          .then((response) => response.text())
-          .then((html) => {
-            document.querySelector(".map-container").innerHTML = html;
-          });
-      });
-
-      updateSliderColor();
     </script>
   </body>
 </html>
